@@ -24,61 +24,87 @@ FEATURES = [
 
 
 def call_llm(prompt: str) -> dict:
-    response = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-
-    content = response.choices[0].message.content.strip()
-
     try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        print("\n=== RAW LLM OUTPUT ===")
+        print(content)
+        print("======================\n")
+
         return json.loads(content)
-    except:
+
+    except Exception as e:
+        print("LLM ERROR:", e)
         return {}
 
 
 def build_prompt_v1(query: str) -> str:
     return f"""
-You are an AI real estate assistant.
+You are a data extraction system.
 
-Extract structured features STRICTLY.
+Extract features and return ONLY valid JSON.
 
-Return ONLY JSON.
+NO explanation.
+NO text.
+NO markdown.
 
-Features:
-{FEATURES}
-
-Rules:
-- Use null if missing
-- Map quality: poor→Po, fair→Fa, average→TA, good→Gd, excellent→Ex
-- Do NOT guess values
+STRICT FORMAT:
+{{
+  "OverallQual": number or null,
+  "GrLivArea": number or null,
+  "GarageCars": number or null,
+  "TotalBsmtSF": number or null,
+  "FullBath": number or null,
+  "YearRemodAdd": number or null,
+  "TotRmsAbvGrd": number or null,
+  "Neighborhood": string or null,
+  "KitchenQual": one of [Po, Fa, TA, Gd, Ex] or null,
+  "ExterQual": one of [Po, Fa, TA, Gd, Ex] or null
+}}
 
 Query:
 {query}
+
+Return JSON ONLY.
 """
 
 
 def build_prompt_v2(query: str) -> str:
     return f"""
-You are a smart real estate assistant.
+You are a structured data extractor.
 
-Extract features EVEN if implicit.
-
-Infer reasonable values if possible.
-
-Return ONLY JSON.
-
-Features:
-{FEATURES}
+Infer values when reasonable, but still return ONLY JSON.
 
 Rules:
-- If user says "good house" → OverallQual ~ 6–7
-- If "large house" → higher sqft
-- Still use null if truly unknown
+- good → Gd
+- excellent → Ex
+- average → TA
+
+Same JSON format as below:
+
+{{
+  "OverallQual": number or null,
+  "GrLivArea": number or null,
+  "GarageCars": number or null,
+  "TotalBsmtSF": number or null,
+  "FullBath": number or null,
+  "YearRemodAdd": number or null,
+  "TotRmsAbvGrd": number or null,
+  "Neighborhood": string or null,
+  "KitchenQual": string or null,
+  "ExterQual": string or null
+}}
 
 Query:
 {query}
+
+Return JSON ONLY.
 """
 
 
@@ -99,6 +125,7 @@ def extract_features_from_query(query: str) -> Dict[str, Any]:
     score_v1 = evaluate_output(data_v1)
     score_v2 = evaluate_output(data_v2)
 
+    # choose best prompt
     if score_v2 > score_v1:
         selected = data_v2
         version = "v2"
@@ -107,6 +134,17 @@ def extract_features_from_query(query: str) -> Dict[str, Any]:
         selected = data_v1
         version = "v1"
         score = score_v1
+
+    quality_map = {
+        "Po": 2,
+        "Fa": 4,
+        "TA": 5,
+        "Gd": 7,
+        "Ex": 9
+    }
+
+    if isinstance(selected.get("OverallQual"), str):
+        selected["OverallQual"] = quality_map.get(selected["OverallQual"], None)
 
     missing = [k for k in FEATURES if selected.get(k) is None]
 
