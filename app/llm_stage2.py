@@ -11,18 +11,22 @@ def interpret_prediction(features: dict, prediction: float) -> str:
     prompt = f"""
 You are a real estate expert.
 
-Explain the predicted house price based on features.
-
-Features:
+House features:
 {features}
 
 Predicted price:
 {prediction}
 
-Guidelines:
-- Explain if price is high or low
-- Mention key drivers (size, quality, location)
-- Keep it simple and clear
+Dataset reference:
+- Median price: 180000
+- Typical range: 40000 to 750000
+
+Tasks:
+1. Say if price is below, around, or above median
+2. Explain key drivers (size, quality, location)
+3. Keep explanation simple
+
+Answer clearly:
 """
 
     response = client.chat.completions.create(
