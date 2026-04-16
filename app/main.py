@@ -9,7 +9,7 @@ app = FastAPI()
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict_price(features: HouseFeatures):
-    data = pd.DataFrame([features.dict()])
+    data = pd.DataFrame([features.model_dump()])
     
     prediction = predict(data)[0]
 
