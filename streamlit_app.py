@@ -16,7 +16,7 @@ if st.button("Analyze"):
     else:
         try:
             response = requests.post(
-                "http://127.0.0.1:8000/analyze-query",
+                "https://ai-real-estate-agent-production-6573.up.railway.app/analyze-query",
                 json={"query": query}
             )
 
